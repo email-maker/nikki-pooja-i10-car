@@ -2,44 +2,35 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Fast Mail Launcher</title>
+  <title>Login — Fast Mail Launcher</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="login-card">
+    <div class="login-logo">📧</div>
+    <h2>Welcome Back</h2>
+    <p class="subtitle">Login to continue</p>
 
-<div class="container">
-  <h2>📧 Fast Mail Launcher</h2>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button id="loginBtn">Login</button>
 
-  <div class="row">
-    <input id="senderName" placeholder="Sender Name">
-    <input id="email" placeholder="Your Gmail">
+    <p id="loginStatus"></p>
   </div>
 
-  <div class="row">
-    <input id="pass" type="password" placeholder="App Password">
-    <input id="subject" placeholder="Email Subject">
-  </div>
-
-  <div class="row landscape-row">
-    <textarea id="message" class="bigbox" placeholder="Message Body"></textarea>
-
-    <div class="recipient-box">
-      <textarea id="recipients" class="bigbox" placeholder="Recipients (comma or newline)"></textarea>
-      <div class="small-info">
-        <span id="emailCount">Total Emails: 0</span><br>
-        <span id="remainingCount">Remaining this hour: 31</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="row">
-    <button id="sendBtn">Send All</button>
-    <button id="logoutBtn">Logout</button>
-  </div>
-
-  <p id="statusMessage"></p>
-</div>
-
-<script src="script.js"></script>
+  <script>
+    loginBtn.addEventListener("click", () => {
+      fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          username: username.value.trim(),
+          password: password.value.trim()
+        })
+      })
+      .then(r => r.json())
+      .then(d => d.success ? location.href="/launcher" : loginStatus.innerText=d.message);
+    });
+  </script>
 </body>
 </html>
