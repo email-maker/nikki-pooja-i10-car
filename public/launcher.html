@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Fast Mail Launcher</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Mail Communication Console</title>
+<link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
 <div class="container">
-  <h2>📧 Fast Mail Launcher</h2>
+
+  <h1>📧 Mail Communication Console</h1>
 
   <div class="row">
     <input id="senderName" placeholder="Sender Name">
@@ -22,14 +24,7 @@
 
   <div class="row landscape-row">
     <textarea id="message" class="bigbox" placeholder="Message Body"></textarea>
-
-    <div class="recipient-box">
-      <textarea id="recipients" class="bigbox" placeholder="Recipients (comma or newline)"></textarea>
-      <div class="small-info">
-        <span id="emailCount">Total Emails: 0</span><br>
-        <span id="remainingCount">Remaining this hour: 31</span>
-      </div>
-    </div>
+    <textarea id="recipients" class="bigbox" placeholder="Recipients (comma or newline)"></textarea>
   </div>
 
   <div class="row">
@@ -41,5 +36,6 @@
 </div>
 
 <script src="script.js"></script>
+
 </body>
 </html>
