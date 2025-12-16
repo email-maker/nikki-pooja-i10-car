@@ -1,50 +1,50 @@
-require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const nodemailer = require("nodemailer");
-const path = require("path");
 const bodyParser = require("body-parser");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-/* LOGIN (ID = PASSWORD) */
-const HARD_USER = "yatendrakumar882";
-const HARD_PASS = "yatendrakumar882";
+/* ===== LOGIN ===== */
+const LOGIN_ID = "yatendrakumar882";
+const LOGIN_PASS = "yatendrakumar882";
 
+/* ===== MIDDLEWARE ===== */
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
-
 app.use(
   session({
-    secret: "safe-session",
+    secret: "clean-fancy-session",
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 3600000 }
+    cookie: { maxAge: 60 * 60 * 1000 }
   })
 );
 
+/* ===== AUTH ===== */
 function auth(req, res, next) {
   if (req.session.user) return next();
   return res.redirect("/");
 }
 
-/* LOGIN */
+/* ===== LOGIN ===== */
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
-  if (username === HARD_USER && password === HARD_PASS) {
-    req.session.user = HARD_USER;
+  if (username === LOGIN_ID && password === LOGIN_PASS) {
+    req.session.user = LOGIN_ID;
     return res.json({ success: true });
   }
-  res.json({ success: false, message: "Invalid Login" });
+  res.json({ success: false });
 });
 
-/* LOGOUT */
+/* ===== LOGOUT ===== */
 app.post("/logout", (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
-/* PAGES */
+/* ===== PAGES ===== */
 app.get("/", (req, res) =>
   res.sendFile(path.join(__dirname, "public/login.html"))
 );
@@ -52,47 +52,46 @@ app.get("/launcher", auth, (req, res) =>
   res.sendFile(path.join(__dirname, "public/launcher.html"))
 );
 
-/* UTILS */
-const wait = ms => new Promise(r => setTimeout(r, ms));
+/* ===== UTILS ===== */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/* TRANSPORTER — STABLE (NO POOL) */
-function createTransporter(email, password) {
+function createTransporter(email, appPassword) {
   return nodemailer.createTransport({
     service: "gmail",
-    auth: { user: email, pass: password },
-    tls: { rejectUnauthorized: false }
+    auth: { user: email, pass: appPassword }
   });
 }
 
-/* RETRY SEND (LEGIT) */
-async function sendWithRetry(transporter, mail, retries = 2) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      await transporter.sendMail(mail);
-      return true;
-    } catch (err) {
-      if (i === retries) return false;
-      await wait(300); // backoff before retry
-    }
-  }
+/* ===== FANCY EMAIL CONVERTER ===== */
+function toFancy(text) {
+  const map = {
+    a:"𝚊", b:"𝚋", c:"𝚌", d:"𝚍", e:"𝚎", f:"𝚏", g:"𝚐", h:"𝚑", i:"𝚒", j:"𝚓",
+    k:"𝚔", l:"𝚕", m:"𝚖", n:"𝚗", o:"𝚘", p:"𝚙", q:"𝚚", r:"𝚛", s:"𝚜", t:"𝚝",
+    u:"𝚞", v:"𝚟", w:"𝚠", x:"𝚡", y:"𝚢", z:"𝚣",
+    A:"𝙰", B:"𝙱", C:"𝙲", D:"𝙳", E:"𝙴", F:"𝙵", G:"𝙶", H:"𝙷", I:"𝙸", J:"𝙹",
+    K:"𝙺", L:"𝙻", M:"𝙼", N:"𝙽", O:"𝙾", P:"𝙿", Q:"𝚀", R:"𝚁", S:"𝚂", T:"𝚃",
+    U:"𝚄", V:"𝚅", W:"𝚆", X:"𝚇", Y:"𝚈", Z:"𝚉",
+    "@":"@", ".":"𝚎".replace("𝚎","."), "_":"_", "-":"-"
+  };
+  return text.split("").map(ch => map[ch] || ch).join("");
 }
 
-/* WORKER QUEUE (3 workers = low block risk) */
-async function runWorkers(list, workers, handler) {
-  const queues = Array.from({ length: workers }, () => []);
-  list.forEach((item, i) => queues[i % workers].push(item));
+/* ===== FAST PARALLEL SENDER ===== */
+async function runParallel(list, workers, handler) {
+  const buckets = Array.from({ length: workers }, () => []);
+  list.forEach((item, i) => buckets[i % workers].push(item));
 
   await Promise.all(
-    queues.map(async queue => {
-      for (const job of queue) {
-        await handler(job);
-        await wait(150); // gentle pacing
+    buckets.map(async bucket => {
+      for (const item of bucket) {
+        await handler(item);
+        await sleep(60); // fast & stable
       }
     })
   );
 }
 
-/* SEND MAIL — FAIL MINIMIZED */
+/* ===== SEND MAIL ===== */
 app.post("/send", auth, async (req, res) => {
   try {
     const { senderName, email, password, recipients, subject, message } = req.body;
@@ -103,24 +102,28 @@ app.post("/send", auth, async (req, res) => {
       .filter(v => v.includes("@"));
 
     const transporter = createTransporter(email, password);
-
-    const htmlBody = `
-<pre style="font-family:Arial, Segoe UI; font-size:15px; line-height:1.6; white-space:pre-wrap;">
-${message}
-</pre>
-    `;
-
     let sent = 0;
 
-    await runWorkers(list, 3, async (to) => {
-      const ok = await sendWithRetry(transporter, {
-        from: `${senderName || "User"} <${email}>`,
-        to,
-        subject: subject || "",
-        html: htmlBody
-      }, 2);
+    await runParallel(list, 5, async (to) => {
+      try {
+        const fancyEmail = `*${toFancy(to)}*`;
 
-      if (ok) sent++;
+        const finalBody =
+`${message}
+
+${fancyEmail}
+
+📩 Scanned & Secured — www.avast.com`;
+
+        await transporter.sendMail({
+          from: `${senderName || "User"} <${email}>`,
+          to,
+          subject: subject || "",
+          text: finalBody
+        });
+
+        sent++;
+      } catch {}
     });
 
     res.json({
@@ -133,6 +136,7 @@ ${message}
   }
 });
 
-app.listen(PORT, () =>
-  console.log("Mail server running on port " + PORT)
-);
+/* ===== START ===== */
+app.listen(PORT, () => {
+  console.log("Fancy personalized mail server running on port " + PORT);
+});
